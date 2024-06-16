@@ -1,108 +1,99 @@
 #include "login.h"
+#include <QGridLayout>
+#include <QPainter>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QDebug>
 
 Login::Login(QWidget *parent) : QWidget(parent) {
-    setWindowTitle("Login");
-    setGeometry(200, 200, 300, 150);
+    setMaximumSize(750, 500);
+    setMinimumSize(250, 250);
+    setWindowTitle("Ejercicio 14");
 
-    auto layout = new QGridLayout(this);
+    lUsuario = new QLabel("Usuario:");
+    leUsuario = new QLineEdit;
+    lClave = new QLabel("Clave:");
+    leClave = new QLineEdit;
+    leClave->setEchoMode(QLineEdit::Password);
+    pbValidar = new QPushButton("Validar");
+    pbAlternarTemperatura = new QPushButton("Mostrar u ocultar Temperatura");
+    lClima = new QLabel("");
 
-    lbl_usuario = new QLabel("Usuario:");
-    lbl_contrasena = new QLabel("Contraseña:");
+    QGridLayout *layout = new QGridLayout(this);
+    layout->addWidget(lUsuario, 0, 0);
+    layout->addWidget(leUsuario, 0, 1);
+    layout->addWidget(lClave, 1, 0);
+    layout->addWidget(leClave, 1, 1);
+    layout->addWidget(pbValidar, 2, 1, 1, 2);
+    layout->addWidget(pbAlternarTemperatura, 3, 0, 1, 2);
+    layout->addWidget(lClima, 4, 0, 1, 2);
 
-    txt_usuario = new QLineEdit();
-    txt_contrasena = new QLineEdit();
-    txt_contrasena->setEchoMode(QLineEdit::Password);
+    connect(pbValidar, SIGNAL(pressed()), this, SLOT(slot_ValidarUsuario()));
+    connect(leClave, SIGNAL(returnPressed()), this, SLOT(slot_ValidarUsuario()));
+    connect(pbAlternarTemperatura, SIGNAL(pressed()), this, SLOT(slot_alternarTemperatura()));
 
-    btn_login = new QPushButton("Ingresar");
+    manager = new QNetworkAccessManager(this);
+    managerClima = new QNetworkAccessManager(this);
 
-    layout->addWidget(lbl_usuario, 0, 0);
-    layout->addWidget(txt_usuario, 0, 1);
-    layout->addWidget(lbl_contrasena, 1, 0);
-    layout->addWidget(txt_contrasena, 1, 1);
-    layout->addWidget(btn_login, 2, 0, 1, 2);
+    connect(manager, SIGNAL(finished(QNetworkReply*)), this, SLOT(slot_descargafinalizada(QNetworkReply*)));
+    connect(managerClima, SIGNAL(finished(QNetworkReply*)), this, SLOT(slot_descargafinalizadaClima(QNetworkReply*)));
 
-    setLayout(layout);
+    QNetworkRequest requestClima(QUrl("https://api.weatherapi.com/v1/current.json?key=6ebf146961d24c06b6a02801241104&q=Cordoba&aqi=no"));
+    managerClima->get(requestClima);
 
-    connect(btn_login, &QPushButton::clicked, this, &Login::verificarLogin);
+    QNetworkRequest request(QUrl("https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjqKFbXPLmoTaXmgvFDJxcT2L3KWCdLrwI4FIi8rLxVAYBkmofOvzIpPXEAkU9Oba4OD2VF1zWVGQPMPnBcwojztewxcevaalMMEFWrFPq7UrEVsL-PmzGHbNgbUPipCmk2LUraHmBjNBg/s1600/Captura+de+pantalla+de+2016-07-19+23-58-04.png"));
+    manager->get(request);
+
+    adminDB = new AdminDB(this);
+    adminDB->openDB("C:/Users/ignad/Documents/POO/Ejercicios/Ejercicio 14/Ejercicio14/db.sqlite");
 }
 
-void Login::verificarLogin() {
-    QString usuario_ingresado = txt_usuario->text();
-    QString contrasena_ingresada = txt_contrasena->text();
-    if (usuario_ingresado == "admin" && contrasena_ingresada == "1111") {
-        QMessageBox::information(this, "Ingreso exitoso", "Inicio de sesión exitoso.");
-        abrirFormulario();
+void Login::paintEvent(QPaintEvent *) {
+    QPainter painter(this);
+    painter.drawImage(0, 0, im.scaled(this->width(), this->height()));
+}
+
+void Login::slot_descargafinalizadaClima(QNetworkReply *reply) {
+    QByteArray jsonDevuelto = reply->readAll();
+    qDebug() << jsonDevuelto;
+
+    QJsonDocument doc = QJsonDocument::fromJson(jsonDevuelto);
+    if (doc.isObject()) {
+        QJsonObject currentObject = doc.object()["current"].toObject();
+        if (currentObject.contains("temp_c")) {
+            double temperatureC = currentObject["temp_c"].toDouble();
+            qDebug() << "Temperature (Celsius):" << temperatureC;
+            lClima->setText(QString("%1°C").arg(temperatureC));
+            lClima->setVisible(true);
+        } else {
+            qDebug() << "Error: 'temp_c' key not found in 'current' object";
+        }
     } else {
-        QMessageBox::warning(this, "Error", "Usuario y/o contraseña incorrectos");
-        txt_usuario->clear();
-        txt_contrasena->clear();
+        qDebug() << "Error: Invalid JSON format";
     }
 }
 
-void Login::abrirFormulario() {
-    formulario = new Formulario();
-    formulario->show();
-    close();
+void Login::mostrarTemperatura(bool mostrar) {
+    lClima->setVisible(mostrar);
 }
 
-Formulario::Formulario(QWidget *parent) : QWidget(parent) {
-    setWindowTitle("Formulario");
-    setGeometry(300, 300, 400, 200);
-
-    auto layout = new QGridLayout(this);
-
-    lbl_legajo = new QLabel("Legajo:");
-    lbl_nombre = new QLabel("Nombre:");
-    lbl_apellido = new QLabel("Apellido:");
-    lbl_captcha = new QLabel("Captcha:");
-
-    txt_legajo = new QLineEdit();
-    txt_nombre = new QLineEdit();
-    txt_apellido = new QLineEdit();
-    txt_captcha = new QLineEdit();
-
-    btn_enviar = new QPushButton("Enviar");
-    btn_limpiar = new QPushButton("Limpiar campos");
-    QPushButton *btn_validar = new QPushButton("Validar");
-
-    captcha_generado = QRandomGenerator::global()->bounded(10000);
-    lbl_captcha->setText("Captcha: " + QString::number(captcha_generado));
-
-    layout->addWidget(lbl_legajo, 0, 0);
-    layout->addWidget(txt_legajo, 0, 1);
-    layout->addWidget(lbl_nombre, 1, 0);
-    layout->addWidget(txt_nombre, 1, 1);
-    layout->addWidget(lbl_apellido, 2, 0);
-    layout->addWidget(txt_apellido, 2, 1);
-    layout->addWidget(lbl_captcha, 3, 0);
-    layout->addWidget(txt_captcha, 3, 1);
-    layout->addWidget(btn_validar, 3, 2);
-    layout->addWidget(btn_enviar, 4, 0, 1, 2);
-    layout->addWidget(btn_limpiar, 5, 0, 1, 2);
-
-    setLayout(layout);
-
-    connect(btn_limpiar, &QPushButton::clicked, this, &Formulario::limpiarCampos);
-    connect(btn_enviar, &QPushButton::clicked, this, &Formulario::verificarCaptcha);
-    connect(btn_validar, &QPushButton::clicked, this, &Formulario::verificarCaptcha);
+void Login::slot_alternarTemperatura() {
+    mostrarTemperatura(!lClima->isVisible());
 }
 
-void Formulario::limpiarCampos() {
-    txt_legajo->clear();
-    txt_nombre->clear();
-    txt_apellido->clear();
-    txt_captcha->clear();
-
-    captcha_generado = QRandomGenerator::global()->bounded(10000);
-    lbl_captcha->setText("Captcha: " + QString::number(captcha_generado));
+void Login::slot_descargafinalizada(QNetworkReply *reply) {
+    im = QImage::fromData(reply->readAll());
+    this->repaint();
 }
 
-void Formulario::verificarCaptcha() {
-    QString captcha_ingresado = txt_captcha->text();
-    if (captcha_ingresado == QString::number(captcha_generado)) {
-        QMessageBox::information(this, "Captcha correcto", "Captcha ingresado correctamente.");
+void Login::slot_ValidarUsuario() {
+    QString usuario = leUsuario->text();
+    QString clave = leClave->text();
+
+    QStringList datos = adminDB->validateUser(usuario, clave);
+    if (!datos.isEmpty()) {
+        emit usuarioValido();
     } else {
-        QMessageBox::warning(this, "Captcha incorrecto", "El captcha ingresado es incorrecto.");
-        txt_captcha->clear();
+        qDebug() << "Usuario no válido";
     }
 }

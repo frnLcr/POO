@@ -2,62 +2,44 @@
 #define LOGIN_H
 
 #include <QWidget>
+#include <QNetworkAccessManager>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
-#include <QGridLayout>
-#include <QMessageBox>
-#include <QRandomGenerator>
-
-class Formulario;
+#include <QNetworkReply>
+#include "admindb.h" // Incluir la cabecera de AdminDB
 
 class Login : public QWidget {
     Q_OBJECT
 public:
-    Login(QWidget *parent = nullptr);
+    explicit Login(QWidget *parent = nullptr);
+
+    void mostrarTemperatura(bool mostrar);
+
+signals:
+    void usuarioValido();
+
+protected:
+    void paintEvent(QPaintEvent *);
 
 private slots:
-    void verificarLogin();
-    void abrirFormulario();
+    void slot_ValidarUsuario();
+    void slot_alternarTemperatura();
+    void slot_descargafinalizadaClima(QNetworkReply *reply);
+    void slot_descargafinalizada(QNetworkReply *reply);
 
 private:
-    QLabel *lbl_usuario;
-    QLabel *lbl_contrasena;
-    QLabel *lbl_captcha;
-
-    QLineEdit *txt_usuario;
-    QLineEdit *txt_contrasena;
-    QLineEdit *txt_captcha;
-
-    QPushButton *btn_login;
-
-    Formulario *formulario;
-};
-
-class Formulario : public QWidget {
-    Q_OBJECT
-public:
-    Formulario(QWidget *parent = nullptr);
-
-private slots:
-    void limpiarCampos();
-    void verificarCaptcha();
-
-private:
-    QLabel *lbl_legajo;
-    QLabel *lbl_nombre;
-    QLabel *lbl_apellido;
-    QLabel *lbl_captcha;
-
-    QLineEdit *txt_legajo;
-    QLineEdit *txt_nombre;
-    QLineEdit *txt_apellido;
-    QLineEdit *txt_captcha;
-
-    QPushButton *btn_enviar;
-    QPushButton *btn_limpiar;
-
-    int captcha_generado;
+    QLabel *lUsuario;
+    QLabel *lClave;
+    QLabel *lClima;
+    QLineEdit *leUsuario;
+    QLineEdit *leClave;
+    QPushButton *pbValidar;
+    QPushButton *pbAlternarTemperatura;
+    QNetworkAccessManager *manager;
+    QNetworkAccessManager *managerClima;
+    QImage im;
+    AdminDB *adminDB; // Añadir el objeto AdminDB
 };
 
 #endif // LOGIN_H
